@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GitHub Repo Analyzer</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            padding: 20px;
+            color: #333;
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 20px;
+            color: #444;
+        }
+        .container {
+            display: flex;
+            justify-content: space-between;
+        }
+        .field {
+            width: 48%;
+            background: white;
+            border: 1px solid #ccc;
+            padding: 15px;
+            border-radius: 5px;
+            box-shadow: 2px 2px 12px rgba(0, 0, 0, 0.1);
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+        }
+        input[type="text"] {
+            width: calc(100% - 20px);
+            padding: 8px 10px;
+            margin-bottom: 15px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        button {
+            padding: 10px 15px;
+            background-color: #28a745;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-bottom: 15px;
+        }
+        button:hover {
+            background-color: #218838;
+        }
+        pre {
+            background: #f8f8f8;
+            padding: 10px;
+            border-radius: 5px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            overflow-x: auto;
+        }
+        code {
+            background: #f1f1f1;
+            padding: 2px 4px;
+            border-radius: 3px;
+            color: #d6336c;
+        }
+        .response-area {
+            margin-top: 20px;
+            padding: 15px;
+            background: #fff;
+            border-radius: 5px;
+            box-shadow: 2px 2px 12px rgba(0, 0, 0, 0.1);
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>GitHub Repo Analyzer</h1>
+    <div class="container">
+        <div class="field">
+            <label for="repo-url">GitHub Repo URL:</label>
+            <input type="text" id="repo-url" placeholder="Enter GitHub Repository URL">
+            <button onclick="analyzeRepo()">Analyze Repo</button>
+        </div>
+        <div class="field">
+            <label for="user-query">Ask Questions:</label>
+            <input type="text" id="user-query" placeholder="Ask a question about the code">
+            <button onclick="askQuestion()">Ask</button>
+        </div>
+    </div>
+    <div id="response-area" class="response-area"></div>
+
+    <script>
+        async function analyzeRepo() {
+            const repoUrl = document.getElementById('repo-url').value;
+            const responseArea = document.getElementById('response-area');
+            responseArea.innerHTML = "Analyzing repository...";
+
+            try {
+                const response = await fetch('/construct-count/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ repo_url: repoUrl })
+                });
+                
+                const data = await response.json();
+                responseArea.innerHTML = "<pre>" + JSON.stringify(data, null, 2) + "</pre>";
+            } catch (error) {
+                responseArea.innerHTML = "Error analyzing repository: " + error.message;
+            }
+        }
+
+        async function askQuestion() {
+            const userQuery = document.getElementById('user-query').value;
+            const responseArea = document.getElementById('response-area');
+            responseArea.innerHTML = "Processing your question...";
+
+            try {
+                const response = await fetch('/Git-bot/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ message: userQuery })
+                });
+
+                const data = await response.text();
+                const formattedData = data.replace(/`([^`]+)`/g, '<code>$1</code>');
+
+                responseArea.innerHTML = "<pre>" + formattedData + "</pre>";
+            } catch (error) {
+                responseArea.innerHTML = "Error processing your question: " + error.message;
+            }
+        }
+    </script>
+</body>
+</html>
