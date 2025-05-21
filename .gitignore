@@ -1,0 +1,4 @@
+git-bot/
+.env
+chroma_db/
+__pycache__/

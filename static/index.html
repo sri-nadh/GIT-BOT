@@ -3,103 +3,414 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GitHub Repo Analyzer</title>
+    <title>GitHub Code Assistant</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            background-color: #f4f4f4;
-            padding: 20px;
-            color: #333;
+        :root {
+            --primary: #4f46e5;
+            --primary-hover: #4338ca;
+            --secondary: #f9fafb;
+            --border: #e5e7eb;
+            --text-primary: #111827;
+            --text-secondary: #6b7280;
+            --success: #10b981;
+            --card-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            --success-light: #ecfdf5;
         }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background-color: #f3f4f6;
+            color: var(--text-primary);
+            line-height: 1.6;
+            padding: 2rem;
+        }
+
         h1 {
             text-align: center;
-            margin-bottom: 20px;
-            color: #444;
+            margin-bottom: 1.5rem;
+            font-weight: 700;
+            font-size: 2rem;
+            background: linear-gradient(90deg, #4f46e5, #818cf8);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
         }
-        .container {
+
+        h2 {
+            color: var(--text-primary);
+            margin-bottom: 1.25rem;
+            font-weight: 600;
+            font-size: 1.5rem;
+        }
+
+        .app-container {
+            max-width: 1200px;
+            margin: 0 auto;
             display: flex;
-            justify-content: space-between;
+            flex-direction: column;
+            gap: 2rem;
         }
-        .field {
-            width: 48%;
+
+        .card {
             background: white;
-            border: 1px solid #ccc;
-            padding: 15px;
-            border-radius: 5px;
-            box-shadow: 2px 2px 12px rgba(0, 0, 0, 0.1);
+            border-radius: 0.75rem;
+            padding: 1.5rem;
+            box-shadow: var(--card-shadow);
+            border: 1px solid var(--border);
+            transition: all 0.3s ease;
         }
+
+        .card:hover {
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+
+        .input-group {
+            margin-bottom: 1.5rem;
+            position: relative;
+        }
+
         label {
             display: block;
-            margin-bottom: 8px;
-            font-weight: bold;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: var(--text-primary);
         }
+
         input[type="text"] {
-            width: calc(100% - 20px);
-            padding: 8px 10px;
-            margin-bottom: 15px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
+            width: 100%;
+            padding: 0.75rem 1rem;
+            border: 1px solid var(--border);
+            border-radius: 0.5rem;
+            font-size: 1rem;
+            font-family: inherit;
+            transition: border-color 0.15s ease;
         }
+
+        input[type="text"]:focus {
+            border-color: var(--primary);
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.2);
+        }
+
+        .button-group {
+            display: flex;
+            gap: 1rem;
+        }
+
         button {
-            padding: 10px 15px;
-            background-color: #28a745;
+            background-color: var(--primary);
             color: white;
             border: none;
-            border-radius: 4px;
+            border-radius: 0.5rem;
+            padding: 0.75rem 1.5rem;
+            font-size: 1rem;
+            font-weight: 500;
             cursor: pointer;
-            margin-bottom: 15px;
+            transition: background-color 0.15s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
         }
+
         button:hover {
-            background-color: #218838;
+            background-color: var(--primary-hover);
         }
+
+        button:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+        }
+
+        .response-container {
+            margin-top: 1.5rem;
+            border-radius: 0.5rem;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .response-header {
+            background-color: var(--secondary);
+            padding: 0.75rem 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .response-title {
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .response-content {
+            padding: 1rem;
+            background-color: white;
+            max-height: 500px;
+            overflow-y: auto;
+            border: 1px solid var(--border);
+            border-top: none;
+            border-radius: 0 0 0.5rem 0.5rem;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 3rem 1rem;
+            color: var(--text-secondary);
+        }
+
         pre {
-            background: #f8f8f8;
-            padding: 10px;
-            border-radius: 5px;
+            background: #f8fafc;
+            padding: 1rem;
+            border-radius: 0.375rem;
             white-space: pre-wrap;
             word-wrap: break-word;
             overflow-x: auto;
+            font-size: 0.875rem;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            border: 1px solid #e2e8f0;
         }
+
         code {
-            background: #f1f1f1;
-            padding: 2px 4px;
-            border-radius: 3px;
-            color: #d6336c;
+            background: #f1f5f9;
+            padding: 0.2em 0.4em;
+            border-radius: 0.25rem;
+            font-size: 0.875em;
+            color: #ef4444;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
         }
-        .response-area {
-            margin-top: 20px;
-            padding: 15px;
-            background: #fff;
-            border-radius: 5px;
-            box-shadow: 2px 2px 12px rgba(0, 0, 0, 0.1);
-            overflow-y: auto;
+
+        .file-header {
+            background-color: var(--success-light);
+            padding: 0.5rem 1rem;
+            border-radius: 0.375rem;
+            margin-bottom: 1rem;
+            font-weight: 600;
+            color: var(--success);
+        }
+
+        .loader {
+            display: none;
+            width: 1.25rem;
+            height: 1.25rem;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .loading button .loader {
+            display: inline-block;
+        }
+
+        /* Responsive styles */
+        @media (min-width: 768px) {
+            .tabs {
+                display: flex;
+                gap: 1rem;
+                margin-bottom: 2rem;
+            }
+
+            .tab {
+                padding: 0.75rem 1.5rem;
+                cursor: pointer;
+                border-radius: 0.5rem;
+                font-weight: 500;
+                transition: all 0.2s ease;
+                text-align: center;
+                flex: 1;
+            }
+
+            .tab.active {
+                background-color: var(--primary);
+                color: white;
+            }
+
+            .tab:not(.active) {
+                background-color: var(--secondary);
+                color: var(--text-secondary);
+            }
+
+            .tab:not(.active):hover {
+                background-color: #e5e7eb;
+            }
+
+            .section-grid {
+                display: grid;
+                grid-template-columns: repeat(2, 1fr);
+                gap: 2rem;
+            }
+        }
+
+        @media (max-width: 767px) {
+            .tabs {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 0.5rem;
+                margin-bottom: 1.5rem;
+            }
+
+            .tab {
+                padding: 0.5rem;
+                font-size: 0.875rem;
+                text-align: center;
+                border-radius: 0.5rem;
+                font-weight: 500;
+            }
+
+            .tab.active {
+                background-color: var(--primary);
+                color: white;
+            }
+
+            .tab:not(.active) {
+                background-color: var(--secondary);
+                color: var(--text-secondary);
+            }
+
+            body {
+                padding: 1rem;
+            }
+
+            h1 {
+                font-size: 1.5rem;
+            }
+
+            h2 {
+                font-size: 1.25rem;
+            }
         }
     </style>
 </head>
 <body>
-    <h1>GitHub Repo Analyzer</h1>
-    <div class="container">
-        <div class="field">
-            <label for="repo-url">GitHub Repo URL:</label>
-            <input type="text" id="repo-url" placeholder="Enter GitHub Repository URL">
-            <button onclick="analyzeRepo()">Analyze Repo</button>
+    <div class="app-container">
+        <h1>GitHub Code Assistant</h1>
+
+        <div class="tabs">
+            <div class="tab active" data-target="analyzer">Code Analyzer</div>
+            <div class="tab" data-target="assistant">Code Assistant</div>
         </div>
-        <div class="field">
-            <label for="user-query">Ask Questions:</label>
-            <input type="text" id="user-query" placeholder="Ask a question about the code">
-            <button onclick="askQuestion()">Ask</button>
+
+        <div class="section-grid">
+            <!-- Code Analyzer Section -->
+            <div class="card" id="analyzer-section">
+                <h2>Code Analyzer</h2>
+                <div class="input-group">
+                    <label for="repo-url">GitHub Repository URL:</label>
+                    <input type="text" id="repo-url" placeholder="Enter GitHub Repository URL (e.g. https://github.com/user/repo)">
+                </div>
+                <div class="button-group">
+                    <button id="analyze-button">
+                        <span class="loader"></span>
+                        <span>Analyze Repository</span>
+                    </button>
+                </div>
+                <div class="response-container">
+                    <div class="response-header">
+                        <span class="response-title">Analysis Results</span>
+                    </div>
+                    <div class="response-content" id="summary-response">
+                        <div class="empty-state">
+                            Submit a repository URL to see code summaries
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Code Assistant Section -->
+            <div class="card" id="assistant-section" style="display: none;">
+                <h2>Code Assistant Bot</h2>
+                <div class="input-group">
+                    <label for="user-query">Ask About Your Code:</label>
+                    <input type="text" id="user-query" placeholder="Ask a question about the code (e.g. How does the main function work?)">
+                </div>
+                <div class="button-group">
+                    <button id="ask-button">
+                        <span class="loader"></span>
+                        <span>Ask Question</span>
+                    </button>
+                </div>
+                <div class="response-container">
+                    <div class="response-header">
+                        <span class="response-title">Assistant Response</span>
+                    </div>
+                    <div class="response-content" id="bot-response">
+                        <div class="empty-state">
+                            Analyze a repository first, then ask questions about the code
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
-    <div id="response-area" class="response-area"></div>
 
     <script>
+        // Tab switching functionality
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.addEventListener('click', function() {
+                // Remove active class from all tabs
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                
+                // Add active class to clicked tab
+                this.classList.add('active');
+                
+                // Get target section
+                const target = this.getAttribute('data-target');
+                
+                // Hide all sections
+                document.getElementById('analyzer-section').style.display = 'none';
+                document.getElementById('assistant-section').style.display = 'none';
+                
+                // Show target section
+                document.getElementById(target + '-section').style.display = 'block';
+            });
+        });
+
+        // Format code with syntax highlighting
+        function formatResponse(data) {
+            if (typeof data === 'object') {
+                let formattedOutput = "";
+                
+                for (const [filename, summary] of Object.entries(data)) {
+                    formattedOutput += `<div class="file-header">${filename}</div><pre>${summary}</pre>`;
+                }
+                
+                return formattedOutput;
+            } else {
+                // Format code blocks and inline code
+                return data.replace(/`([^`]+)`/g, '<code>$1</code>');
+            }
+        }
+
+        // API calls with loading state
         async function analyzeRepo() {
-            const repoUrl = document.getElementById('repo-url').value;
-            const responseArea = document.getElementById('response-area');
-            responseArea.innerHTML = "Analyzing repository...";
+            const repoUrl = document.getElementById('repo-url').value.trim();
+            if (!repoUrl) {
+                alert('Please enter a GitHub repository URL');
+                return;
+            }
+
+            const responseArea = document.getElementById('summary-response');
+            const analyzeButton = document.getElementById('analyze-button');
+            
+            // Show loading state
+            analyzeButton.disabled = true;
+            analyzeButton.parentElement.classList.add('loading');
+            responseArea.innerHTML = "<div class='empty-state'>Analyzing repository... This may take a few minutes.</div>";
 
             try {
-                const response = await fetch('/construct-count/', {
+                const response = await fetch('/summarize-code/', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -107,17 +418,41 @@
                     body: JSON.stringify({ repo_url: repoUrl })
                 });
                 
+                if (!response.ok) {
+                    throw new Error(`Error ${response.status}: ${response.statusText}`);
+                }
+                
                 const data = await response.json();
-                responseArea.innerHTML = "<pre>" + JSON.stringify(data, null, 2) + "</pre>";
+                responseArea.innerHTML = formatResponse(data);
+                
+                // Auto-switch to assistant tab after successful analysis
+                document.querySelector('.tab[data-target="assistant"]').click();
+                
+                // Update assistant placeholder
+                document.getElementById('bot-response').innerHTML = "<div class='empty-state'>Repository analyzed! Ask any question about the code.</div>";
             } catch (error) {
-                responseArea.innerHTML = "Error analyzing repository: " + error.message;
+                responseArea.innerHTML = `<div class='empty-state'>Error analyzing repository: ${error.message}</div>`;
+            } finally {
+                // Remove loading state
+                analyzeButton.disabled = false;
+                analyzeButton.parentElement.classList.remove('loading');
             }
         }
 
         async function askQuestion() {
-            const userQuery = document.getElementById('user-query').value;
-            const responseArea = document.getElementById('response-area');
-            responseArea.innerHTML = "Processing your question...";
+            const userQuery = document.getElementById('user-query').value.trim();
+            if (!userQuery) {
+                alert('Please enter a question');
+                return;
+            }
+
+            const responseArea = document.getElementById('bot-response');
+            const askButton = document.getElementById('ask-button');
+            
+            // Show loading state
+            askButton.disabled = true;
+            askButton.parentElement.classList.add('loading');
+            responseArea.innerHTML = "<div class='empty-state'>Processing your question...</div>";
 
             try {
                 const response = await fetch('/Git-bot/', {
@@ -128,14 +463,33 @@
                     body: JSON.stringify({ message: userQuery })
                 });
 
-                const data = await response.text();
-                const formattedData = data.replace(/`([^`]+)`/g, '<code>$1</code>');
+                if (!response.ok) {
+                    throw new Error(`Error ${response.status}: ${response.statusText}`);
+                }
 
-                responseArea.innerHTML = "<pre>" + formattedData + "</pre>";
+                const data = await response.text();
+                responseArea.innerHTML = `<pre>${formatResponse(data)}</pre>`;
             } catch (error) {
-                responseArea.innerHTML = "Error processing your question: " + error.message;
+                responseArea.innerHTML = `<div class='empty-state'>Error processing your question: ${error.message}</div>`;
+            } finally {
+                // Remove loading state
+                askButton.disabled = false;
+                askButton.parentElement.classList.remove('loading');
             }
         }
+
+        // Event listeners
+        document.getElementById('analyze-button').addEventListener('click', analyzeRepo);
+        document.getElementById('ask-button').addEventListener('click', askQuestion);
+        
+        // Allow pressing Enter to submit
+        document.getElementById('repo-url').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') analyzeRepo();
+        });
+        
+        document.getElementById('user-query').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') askQuestion();
+        });
     </script>
 </body>
 </html>

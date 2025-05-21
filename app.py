@@ -4,22 +4,23 @@ from fastapi.responses import HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 from langchain_core.prompts import ChatPromptTemplate
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain_google_genai import GoogleGenerativeAIEmbeddings
-from langchain_openai import ChatOpenAI
+from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from langchain_core.output_parsers import StrOutputParser
-from langchain_community.vectorstores import FAISS
+from langchain_chroma import Chroma
 from pydantic import BaseModel
 import logging
 import os
 import tempfile
 import subprocess
 import json
+from dotenv import load_dotenv
+
+load_dotenv()
 
 app = FastAPI()
 
-
-api_key=''
+openai_api_key=os.getenv("OPENAI_API_KEY")
+google_api_key=os.getenv("GOOGLE_API_KEY")
 
 logging.basicConfig(level=logging.INFO,)
 logger=logging.getLogger(__name__)
@@ -27,8 +28,8 @@ logger=logging.getLogger(__name__)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  
-    allow_credentials=True,
-    allow_methods=["*"],  
+    allow_credentials=False,
+    allow_methods=["GET","POST"],  
     allow_headers=["*"], 
 )
 
@@ -51,12 +52,13 @@ class userMessage(BaseModel):
 
 #Function which returns the response for the user queries with context taken from vector database(FAISS)
 def llm_bot(user_message,code_context):
-    model=ChatGoogleGenerativeAI(model='gemini-1.5-flash',api_key=api_key)
+
+    model=ChatOpenAI(model="gpt-4o-mini", api_key=openai_api_key, temperature=0.2)
     parser= StrOutputParser()
     prompt_template = """
     Answer the question as detailed as possible from the provided context(Python code Explanation) , make sure to provide all the details, if the answer is not in
-    provided context just say, "answer is not available in the context", don't provide the wrong answer\n\n
-    Context:\n {context}?\n
+    provided context just say, "answer is not available in the context", don't provide the wrong answer.
+    Context:\n {context}\n
     Question: \n{question}\n
 
     Answer:
@@ -77,22 +79,28 @@ def get_text_chunks(text):
 
 #function to store vector embedding in faiss 
 def get_vector_store(text_chunks):
-    embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001", google_api_key=api_key)
-    vector_store = FAISS.from_texts(text_chunks, embedding=embeddings)
-    vector_store.save_local("faiss_index")
+    embeddings = OpenAIEmbeddings(model="text-embedding-3-small", openai_api_key=openai_api_key)
+    # Make sure the directory exists
+    if not os.path.exists("chroma_db"):
+        os.makedirs("chroma_db")
+    # Create and return the vector store (no need to call persist with langchain_chroma)
+    vector_store = Chroma.from_texts(text_chunks, embedding=embeddings, persist_directory="chroma_db")
+    logger.info("Successfully stored embeddings in Chroma DB")
 
 #function handling the user queries about the code
 def user_input(user_question):
-    embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001", google_api_key=api_key)
-    new_db = FAISS.load_local("faiss_index", embeddings,allow_dangerous_deserialization=True)
+    embeddings = OpenAIEmbeddings(model="text-embedding-3-small", openai_api_key=openai_api_key)
+    
+    new_db = Chroma(persist_directory="chroma_db", embedding_function=embeddings)
+    
     docs = new_db.similarity_search(user_question)
-    response = llm_bot(user_question,docs)
+    response = llm_bot(user_question, docs)
     return response
 
 
 #Endpoint for the bot
 @app.post("/Git-bot/")
-async def analyze_repo(user_query: userMessage):
+async def Git_Bot(user_query: userMessage):
     logger.info("Entered Git-bot endpoint")
     
     llm_response=user_input(user_query.message)
@@ -101,21 +109,23 @@ async def analyze_repo(user_query: userMessage):
 
 
 #Function to analyse each python file , which is then embedded and stored in vector database
-def llm_analyse_chain(python_code,python_name):
+def Code_Detailed_analysis(python_code,python_name):
 
-    model=ChatGoogleGenerativeAI(model='gemini-1.5-flash',api_key=api_key)
+    model=ChatOpenAI(model="gpt-4o-mini", api_key=openai_api_key, temperature=0.2)
     
     parser= StrOutputParser()
     
     prompt_template="""
     You are a Expert in Analysing and Explaining python code. Your task is to Explain the code given by the user line by line.
     Instructions:
-    1. Initially state the name of the python file given to you for analysing.
-    2. Explain the Logic of the code, Use the name of python file while explaining.
-    3. Explain the whole code line by line, Use the name of python file while explaining.\n\n
+        1. Initially state the name of the python file given to you for analysing.
+        2. Explain the Logic of the code, Use the name of python file while explaining.
+        3. Explain the whole code line by line, Use the name of python file while explaining.
     
-    The name of Python file given : {file_name}\n
-    The Python Code you need to explain : \n{code}
+    The name of Python file given : {file_name}
+    
+    The Python Code you need to explain : 
+    {code}
     
     Answer : 
     """
@@ -130,68 +140,46 @@ def llm_analyse_chain(python_code,python_name):
 
 
 
-#function which counts the no of if,for,while constructs in a python code using llm
-def llm_count_chain(python_code):
-    try :
-        code= python_code
+#function which summarizes Python code using LLM
+def summarise_python_file(python_code):
+    try:
+        code = python_code
     
-        #os.environ["OPENAI_API_KEY"]=''
-        model = ChatOpenAI(model="gpt-4")
+        model = ChatOpenAI(model="gpt-4.1")
     
         user_template="""
-You are an expert programmer with deep knowledge of Python code. Analyze the provided code to count the exact occurrences of if, for, and while constructs. 
-Only count these keywords when they are used as actual constructs in the code, not when they appear inside strings or comments.
+You are an expert programmer with deep knowledge of Python code. Provide a concise but comprehensive summary of the provided Python code.
 
 Instructions:
+    1. Explain the overall purpose and functionality of the code.
+    2. Identify the main components, classes, and functions.
+    3. Describe the key algorithms or patterns used.
+    4. Highlight any notable libraries or dependencies.
+    5. Keep the summary clear and informative.
 
-1. Analyse the code line by line.
-2. Count the if, for, and while constructs.
-3. Dont count 'if' construct twice when associated with the 'else' construct
-4. Exclude any occurrences within strings or comments.
-5. Identify and count nested constructs:
-      a. if inside for (if_in_for)
-      b. while inside if (while_in_if)
-      c. for inside while (for_in_while)
-      d. if inside while (if_in_while)
-      e. for inside if (for_in_if)
-      f. while inside for (while_in_for)
-
-Return the results only in the following JSON format(dont include explanations):
-
-  "if": <count>,
-  "for": <count>,
-  "while": <count>,
-  "if_in_for": <count>,
-  "for_in_if": <count>,
-  "while_in_if": <count>,
-  "if_in_while": <count>,
-  "for_in_while": <count>,
-  "while_in_for": <count> \n\n
-
-
-Python code for which you need to count the contructs : {code}
+Python code to summarize: {code}
  
-your Answer:
+Your summary:
 """
-        parser=StrOutputParser()
+        parser = StrOutputParser()
     
-        prompt=ChatPromptTemplate([('user',user_template)])
+        prompt = ChatPromptTemplate([('user', user_template)])
 
         chain = prompt | model | parser
     
-        response=chain.invoke({'code':code})
+        response = chain.invoke({'code': code})
 
-        logger.info("Successfully retreived response from LLM")
+        logger.info("Successfully retrieved code summary from LLM")
         return response
     
     except Exception as e:
-        logger.error(f"Error in retreiving response from Openai LLM{e}")
+        logger.error(f"Error in retrieving summary from OpenAI LLM: {e}")
         raise
         
 
-@app.post("/construct-count/")
+@app.post("/summarize-code/")
 async def analyze_repo(repo_link: RepoLink):
-    logger.info("Entered construct-count endpoint")
+    logger.info("Entered summarize-code endpoint")
     
     python_files = []
     total_summary=[]
@@ -223,15 +211,14 @@ async def analyze_repo(repo_link: RepoLink):
     try:
         results = {}
         total_text=''
+        
         for filename, code in python_files:
-            response = llm_count_chain(code)
-            summary=llm_analyse_chain(code,filename)
-            total_summary.append(summary)
+            summary = summarise_python_file(code)
+            analysis = Code_Detailed_analysis(code,filename)
+            total_summary.append(analysis)
             
-            
-            decoded_response = json.loads(response)
-            
-            results[filename] = decoded_response
+            # Store the summary directly
+            results[filename] = summary
         
         
         for file in total_summary:
