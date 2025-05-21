@@ -12,7 +12,6 @@ import logging
 import os
 import tempfile
 import subprocess
-import json
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -50,7 +49,7 @@ class userMessage(BaseModel):
     message: str
 
 
-#Function which returns the response for the user queries with context taken from vector database(FAISS)
+#Function which returns the response for the user queries with context taken from vector database(Chroma)
 def llm_bot(user_message,code_context):
 
     model=ChatOpenAI(model="gpt-4o-mini", api_key=openai_api_key, temperature=0.2)
@@ -77,13 +76,15 @@ def get_text_chunks(text):
     chunks = text_splitter.split_text(text)
     return chunks
 
-#function to store vector embedding in faiss 
+#function to store vector embedding in Chroma DB
 def get_vector_store(text_chunks):
     embeddings = OpenAIEmbeddings(model="text-embedding-3-small", openai_api_key=openai_api_key)
+    
     # Make sure the directory exists
     if not os.path.exists("chroma_db"):
         os.makedirs("chroma_db")
-    # Create and return the vector store (no need to call persist with langchain_chroma)
+        
+    # Creating the vector store 
     vector_store = Chroma.from_texts(text_chunks, embedding=embeddings, persist_directory="chroma_db")
     logger.info("Successfully stored embeddings in Chroma DB")
 
