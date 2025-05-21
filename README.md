@@ -2,8 +2,6 @@
 
 A modern web application that analyzes GitHub repositories, generates comprehensive code summaries, and provides an AI assistant to answer questions about the code.
 
-![GitHub Code Assistant](https://i.imgur.com/XoS0xNf.png)
-
 ## Features
 
 - **Code Analysis**: Clone and analyze any public GitHub repository
